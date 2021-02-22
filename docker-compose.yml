@@ -1,0 +1,76 @@
+version: "3"
+services:
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin
+    container_name: phpmyadmin
+    restart: on-failure
+    depends_on:
+      - mysql
+    ports:
+      - '8080:80'
+    environment:
+      PMA_HOSTS: mysql:3306
+      PMA_ROOT_PASSWORD: 'password'
+    networks:
+      - back-tier
+    links:
+      - mysql
+  mysql:
+    image: mysql:5.7
+    container_name: mysql
+    restart: on-failure
+    command:
+      --default-authentication-plugin=mysql_native_password
+      --server-id=1
+      --log-bin=mysql-bin
+      --binlog-format=ROW
+      --gtid-mode=ON
+      --enforce-gtid-consistency
+      --log-slave-updates
+      --binlog-do-db=production
+    environment:
+      MYSQL_DATABASE: 'subclean'
+      MYSQL_USER: 'subclean'
+      MYSQL_PASSWORD: 'password'
+      MYSQL_ROOT_PASSWORD: 'password'
+    ports:
+      - '3306:3306'
+    volumes:
+      - datavolume:/var/lib/mysql
+      - ./database:/docker-entrypoint-initdb.d
+    networks:
+      - back-tier
+  api:
+    build:
+      context: .
+      dockerfile: ./api/Dockerfile
+    container_name: api
+    restart: on-failure
+    environment:
+      WAIT_HOSTS: "mysql:3306"
+      WAIT_HOSTS_TIMEOUT: 120
+      WAIT_BEFORE_HOSTS: 5
+      WAIT_SLEEP_INTERVAL: 5
+      MYSQL_HOST: "mysql"
+      MYSQL_USERNAME: "subclean"
+      MYSQL_PASSWORD: "password"
+      MYSQL_DATABASE: "subclean"
+      MYSQL_PORT: 3306
+      MAIL_MAIL: subclean@gomel.me
+      MAIL_USERNAME: subclean@gomel.me
+      MAIL_PASSWORD: burvincr84
+      MAIL_HOST: gomel.me
+      MAIL_PORT: 465
+      SECRET: ultraultimesecretdelamortquituepasencore1
+    ports:
+      - "3000:3000"
+    networks:
+      - back-tier
+    command: sh -c "/wait && cd /build/api && npm start"
+    depends_on:
+      - mysql
+networks:
+  back-tier:
+    driver: bridge
+volumes:
+  datavolume:
